@@ -20,7 +20,7 @@ app.use('/api', sendOtpRoute);
 app.use('/api', verifyOtpRoute);
 app.use('/api', productsRoute);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const PORT = 2025;
+app.listen(2025, () => {
   console.log(`OTP API running at http://localhost:${PORT}`);
 });
