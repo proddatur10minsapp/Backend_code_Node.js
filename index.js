@@ -26,53 +26,54 @@ mongoose.connect(MONGODB_URI, {
 const UserSchema = new mongoose.Schema({
     phoneNumber: { type: String, required: true, unique: true },
     username: { type: String },
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now, expires: '180d' }
 });
 const User = mongoose.model('User', UserSchema);
 
-// Send OTP or Skip OTP if Valid Login Token Provided
+// Send OTP or Skip OTP if User Exists
 app.post('/send-otp', async (req, res) => {
-    const { phoneNumber, username, loginToken } = req.body;
+    const { phoneNumber, username } = req.body;
 
     if (!phoneNumber || !username) {
         return res.status(400).json({ success: false, message: 'Phone number and username are required' });
     }
 
     try {
+        // Check if user already exists in the database
         let user = await User.findOne({ phoneNumber, username });
 
-        // Case: Valid token is provided & matches user -> skip OTP
-        if (user && loginToken) {
-            try {
-                const decoded = jwt.verify(loginToken, JWT_SECRET);
-                if (decoded.phoneNumber === phoneNumber && decoded.username === username) {
-                    return res.status(200).json({
-                        success: true,
-                        message: 'User already logged in',
-                        loginToken
-                    });
-                }
-            } catch (err) {
-                // token invalid or expired, continue to OTP flow
-                console.log('Login token invalid/expired, proceeding with OTP');
-            }
+        if (user) {
+            // If user exists, generate login token directly and skip OTP
+            const loginToken = jwt.sign(
+                { userId: user._id, phoneNumber, username: user.username },
+                JWT_SECRET,
+                { expiresIn: '180d' } // Token valid for 180 days (6 months)
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: 'User already logged in',
+                loginToken
+            });
         }
 
-        // Case: New user or token missing/expired — send OTP
+        // If user does not exist, proceed with sending OTP
         const url = `https://2factor.in/API/V1/${TWO_FACTOR_API_KEY}/SMS/${phoneNumber}/AUTOGEN`;
         const response = await axios.get(url);
 
         if (response.data.Status === 'Success') {
             const sessionId = response.data.Details;
+
+            // Create a JWT token with sessionId, phoneNumber, and username
             const token = jwt.sign({ sessionId, phoneNumber, username }, JWT_SECRET, { expiresIn: '10m' });
 
-            return res.status(200).json({ success: true, token });
+            res.status(200).json({ success: true, token });
         } else {
-            return res.status(400).json({ success: false, message: 'Failed to send OTP' });
+            res.status(400).json({ success: false, message: 'Failed to send OTP' });
         }
     } catch (error) {
         console.error('Error in sending OTP:', error.message);
-        return res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
@@ -85,6 +86,7 @@ app.post('/verify-otp', async (req, res) => {
     }
 
     try {
+        // Decode JWT to get sessionId, phoneNumber, and username
         const decoded = jwt.verify(token, JWT_SECRET);
         const { sessionId, phoneNumber, username } = decoded;
 
@@ -92,6 +94,7 @@ app.post('/verify-otp', async (req, res) => {
         const response = await axios.get(url);
 
         if (response.data.Status === 'Success' && response.data.Details === 'OTP Matched') {
+            // Check if user already exists
             let user = await User.findOne({ phoneNumber });
 
             if (!user) {
@@ -99,23 +102,24 @@ app.post('/verify-otp', async (req, res) => {
                 await user.save();
             }
 
+            // Issue login token valid for 180 days (6 months)
             const loginToken = jwt.sign(
                 { userId: user._id, phoneNumber, username: user.username },
                 JWT_SECRET,
                 { expiresIn: '180d' }
             );
 
-            return res.status(200).json({
+            res.status(200).json({
                 success: true,
                 message: 'OTP verified and user logged in',
                 loginToken
             });
         } else {
-            return res.status(400).json({ success: false, message: 'OTP verification failed', data: response.data });
+            res.status(400).json({ success: false, message: 'OTP verification failed', data: response.data });
         }
     } catch (error) {
         console.error('Error in OTP verification:', error.message);
-        return res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
