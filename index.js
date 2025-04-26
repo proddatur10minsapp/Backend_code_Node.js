@@ -7,6 +7,9 @@ const sendOtpRoute = require('./routes/sendOtp');
 const verifyOtpRoute = require('./routes/verifyOtp');
 const productsRoute = require('./routes/products');
 
+const getproductRoutes = require('./routes/getproducts');
+const categoryRoutes = require('./routes/categories');
+
 const app = express();
 app.use(bodyParser.json());
 
@@ -19,8 +22,10 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api', sendOtpRoute);
 app.use('/api', verifyOtpRoute);
 app.use('/api', productsRoute);
+app.use('/users/products', getproductRoutes);
+app.use('/users/products/category', categoryRoutes);
 
-const PORT = 3000;
-app.listen(3000, () => {
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
   console.log(`OTP API running at http://localhost:${PORT}`);
 });
