@@ -17,21 +17,21 @@ router.post('/verify-otp', async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const { sessionId, phoneNumber, username } = decoded;
+    const { sessionId, mobileNumber, username } = decoded;
 
     const url = `https://2factor.in/API/V1/${TWO_FACTOR_API_KEY}/SMS/VERIFY/${sessionId}/${userOtp}`;
     const response = await axios.get(url);
 
     if (response.data.Status === 'Success' && response.data.Details === 'OTP Matched') {
-      let user = await User.findOne({ phoneNumber });
+      let user = await User.findOne({ mobileNumber });
 
       if (!user) {
-        user = new User({ phoneNumber, username });
+        user = new User({ mobileNumber, username });
         await user.save();
       }
 
       const loginToken = jwt.sign(
-        { userId: user._id, phoneNumber, username: user.username },
+        { userId: user._id, mobileNumber, username: user.username },
         JWT_SECRET
       );
 
