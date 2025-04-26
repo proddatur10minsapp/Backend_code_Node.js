@@ -11,7 +11,7 @@ async function connectDB() {
 }
 
 // GET /users/products/category/getCategoryByName/:name
-//Added a comment
+//Added a comment added
 router.get('/getCategoryByName/:name', async (req, res) => {
   const { name } = req.params;
   try {
