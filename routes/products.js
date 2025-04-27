@@ -4,7 +4,7 @@ const router = express.Router();
 
 const MONGODB_URI = process.env.MONGODB_URI; // Add your connection URI here
 
-// GET /api/products?sort=relevance|popularity|priceLowToHigh|priceHighToLow|newest
+// GET /api/products?sort=relevance|popularity|discountPriceLowToHigh|discountPriceHighToLow|newest
 router.get('/products', async (req, res) => {
   const { sort } = req.query;
 
@@ -15,11 +15,11 @@ router.get('/products', async (req, res) => {
     case 'popularity':
       sortOption = { quantity: -1 }; // Assuming 'quantity' can be used as popularity
       break;
-    case 'priceLowToHigh':
-      sortOption = { price: 1 };
+    case 'discountPriceLowToHigh':
+      sortOption = { discountPrice: 1 }; // Sort by discountPrice (low to high)
       break;
-    case 'priceHighToLow':
-      sortOption = { price: -1 };
+    case 'discountPriceHighToLow':
+      sortOption = { discountPrice: -1 }; // Sort by discountPrice (high to low)
       break;
     case 'newest':
       sortOption = { _id: -1 }; // Sort by the latest added (newest first)
