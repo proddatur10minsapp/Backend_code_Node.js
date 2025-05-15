@@ -2,46 +2,64 @@ const express = require('express');
 const { MongoClient } = require('mongodb');
 const router = express.Router();
 
-const MONGODB_URI = process.env.MONGODB_URI; // Add your connection URI here
+const MONGODB_URI = process.env.MONGODB_URI;
 
-// GET /api/products?sort=relevance|popularity|discountPriceLowToHigh|discountPriceHighToLow|newest
+// GET /api/products?sort=relevance&page=1
 router.get('/products', async (req, res) => {
-  const { sort } = req.query;
+  const { sort = 'relevance', page = 1 } = req.query;
 
-  // Set the default sorting option
+  // Force 30 items per page
+  const pageLimit = 30;
+  const pageNumber = parseInt(page, 10) || 1;
+  const skipCount = (pageNumber - 1) * pageLimit;
+
   let sortOption = {};
 
   switch (sort) {
     case 'popularity':
-      sortOption = { quantity: -1 }; // Assuming 'quantity' can be used as popularity
+      sortOption = { quantity: -1 };
       break;
     case 'discountPriceLowToHigh':
-      sortOption = { discountPrice: 1 }; // Sort by discountPrice (low to high)
+      sortOption = { discountPrice: 1 };
       break;
     case 'discountPriceHighToLow':
-      sortOption = { discountPrice: -1 }; // Sort by discountPrice (high to low)
+      sortOption = { discountPrice: -1 };
       break;
     case 'newest':
-      sortOption = { _id: -1 }; // Sort by the latest added (newest first)
+      sortOption = { _id: -1 };
       break;
     case 'relevance':
     default:
-      sortOption = { name: 1 }; // Alphabetical order (default sort)
+      sortOption = { name: 1 };
       break;
   }
 
   try {
-    // Connect to the database using MongoDB Native driver
     const client = await MongoClient.connect(MONGODB_URI);
     const db = client.db();
-    const productsCollection = db.collection('products'); // Access the 'products' collection
+    const productsCollection = db.collection('products');
 
-    // Query products with the sort option
-    const products = await productsCollection.find().sort(sortOption).toArray();
+    const products = await productsCollection
+      .find()
+      .sort(sortOption)
+      .skip(skipCount)
+      .limit(pageLimit)
+      .toArray();
 
-    res.status(200).json({ success: true, products });
+    const totalCount = await productsCollection.countDocuments();
 
-    client.close(); // Close the connection
+    res.status(200).json({
+      success: true,
+      products,
+      pagination: {
+        page: pageNumber,
+        limit: pageLimit,
+        totalPages: Math.ceil(totalCount / pageLimit),
+        totalItems: totalCount,
+      },
+    });
+
+    client.close();
   } catch (error) {
     console.error('Error fetching products:', error.message);
     res.status(500).json({ success: false, message: 'Server Error' });
