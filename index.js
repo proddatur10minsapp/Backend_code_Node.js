@@ -8,6 +8,7 @@ const verifyOtpRoute = require('./routes/verifyOtp');
 const productsRoute = require('./routes/products');
 const getproductRoutes = require('./routes/getproducts');
 const categoryRoutes = require('./routes/categories');
+const orderApiRoute = require('./routes/orderapi');
 
 const app = express();
 app.use(bodyParser.json());
@@ -34,6 +35,7 @@ app.use('/api', verifyOtpRoute);
 app.use('/api', productsRoute);
 app.use('/users/products', getproductRoutes);
 app.use('/users/products/category', categoryRoutes);
+app.use('/api', orderApiRoute);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
