@@ -14,30 +14,57 @@ async function fetchCurrentOrderStatus(phoneNumber) {
   }
 }
 
-async function sendExpoPush(token, title, body) {
-  await fetch('https://exp.host/--/api/v2/push/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      to: token,
-      title,
-      body,
-      sound: 'default',
-      priority: 'high',
-    }),
-  });
+async function sendExpoPush(token, title, body, data = {}) {
+  try {
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: token,
+        title,
+        body,
+        sound: 'default',
+        priority: 'high',
+        channelId: 'default',
+        data, // 👈 extra data
+      }),
+    });
+
+    const result = await response.json();
+    console.log('📬 Expo push response:', result);
+
+    const receipt = result?.data?.[0];
+    if (receipt?.status === 'error') {
+      console.warn('⚠️ Expo push error:', receipt.message || receipt.details?.error);
+
+      if (receipt.details?.error === 'DeviceNotRegistered') {
+        await ExpoToken.deleteOne({ expoPushToken: token });
+        console.log('🗑️ Removed unregistered token:', token);
+      }
+    }
+  } catch (err) {
+    console.error('❌ Failed to send Expo push:', err.message);
+  }
 }
 
 // Call this after updating the order status in your DB or after fetching from Java API
 async function notifyOrderStatusChange(orderId, newStatus, phoneNumber) {
-  // Fetch the user's Expo token
-  const expoTokenDoc = await ExpoToken.findOne({ phoneNumber });
-  if (expoTokenDoc && expoTokenDoc.expoPushToken) {
+  try {
+    const expoTokenDoc = await ExpoToken.findOne({ phoneNumber });
+
+    if (!expoTokenDoc?.expoPushToken) {
+      console.warn(`⚠️ No Expo token found for phone number: ${phoneNumber}`);
+      return;
+    }
+
     await sendExpoPush(
       expoTokenDoc.expoPushToken,
       'Order Update',
-      `Your order #${orderId} status is now ${newStatus}`
+      `Your order #${orderId} status is now ${newStatus}`,
+      { orderId, status: newStatus } // 👈 sent as `data` to the app
     );
+  } catch (err) {
+    console.error('❌ Error sending order status notification:', err.message);
   }
 }
 
