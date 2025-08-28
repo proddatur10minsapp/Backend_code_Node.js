@@ -14,16 +14,22 @@ const app = express();
 app.use(bodyParser.json());
 
 const connectWithRetry = () => {
-  console.log('Attempting MongoDB connection...');
-  mongoose.connect(process.env.MONGODB_URI)
-    .then(() => {
-      console.log('Connected to MongoDB');
-    })
-    .catch((err) => {
-      console.error('MongoDB connection error:', err);
-      console.log('Retrying MongoDB connection in 2 minutes...');
-      setTimeout(connectWithRetry, 2 * 60 * 1000); // Retry after 2 minutes
-    });
+  mongoose.connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    dbName: 'auth',  // 👈 force auth database
+  })
+  .then(() => {
+    console.log('✅ Connected to MongoDB');
+
+    // Log the DB name
+    console.log('📌 Using database:', mongoose.connection.name);
+  })
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err);
+    console.log('Retrying MongoDB connection in 2 minutes...');
+    setTimeout(connectWithRetry, 2 * 60 * 1000);
+  });
 };
 
 // Initial MongoDB connection
