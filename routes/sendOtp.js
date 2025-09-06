@@ -21,7 +21,9 @@ router.post('/send-otp', async (req, res) => {
     console.log('User exists:', !!user);
 
     // Send OTP via 2factor.in API
-    const url = `https://2factor.in/API/V1/${TWO_FACTOR_API_KEY}/SMS/${phoneNumber}/AUTOGEN?mode=SMS`;
+    const templateName = "Login OTP";
+    const url = `https://2factor.in/API/V1/${TWO_FACTOR_API_KEY}/SMS/${phoneNumber}/AUTOGEN/${encodeURIComponent(templateName)}`;
+
     const response = await axios.get(url);
 
     if (response.data.Status === 'Success') {
@@ -40,4 +42,5 @@ router.post('/send-otp', async (req, res) => {
 });
 
 module.exports = router;
+
 
