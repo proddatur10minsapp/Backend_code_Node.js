@@ -17,7 +17,7 @@ router.post('/verify-otp', async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const { sessionId, phoneNumber, username } = decoded;
+    const { sessionId, phoneNumber } = decoded;
 
     const url = `https://2factor.in/API/V1/${TWO_FACTOR_API_KEY}/SMS/VERIFY/${sessionId}/${userOtp}`;
     const response = await axios.get(url);
@@ -26,7 +26,7 @@ router.post('/verify-otp', async (req, res) => {
       let user = await User.findOne({ phoneNumber });
 
       if (!user) {
-        user = new User({ phoneNumber, username });
+        user = new User({ phoneNumber });
         await user.save();
       }
 
@@ -39,11 +39,18 @@ router.post('/verify-otp', async (req, res) => {
         success: true,
         message: 'OTP verified and user logged in',
         loginToken,
+        user: {
+          id: user._id,
+          phoneNumber: user.phoneNumber,
+        },
       });
     }
 
-    return res.status(400).json({ success: false, message: 'OTP verification failed' });
+    return res.status(400).json({ success: false, message: response.data.Details || 'OTP verification failed' });
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'OTP token expired' });
+    }
     console.error('Verify OTP error:', error.message);
     return res.status(500).json({ success: false, error: error.message });
   }
