@@ -1,17 +1,15 @@
 const express = require("express");
 const router = express.Router();
 const PDFDocument = require("pdfkit");
-const QRCode = require("qrcode"); // ✅ ADD THIS
+const QRCode = require("qrcode");
 const Order = require("../models/Order");
 
 router.get("/orders/:id/bill", async (req, res) => {
   try {
-    // === FETCH ORDER ===
     const order = await Order.findById(req.params.id).lean();
     if (!order) return res.status(404).send("Order not found");
 
-    // === INITIALIZE PDF ===
-    const doc = new PDFDocument({ size: [260, 750], margin: 15 });
+    const doc = new PDFDocument({ size: [300, 750], margin: 15 }); // ✅ wider to fit more columns
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -58,7 +56,7 @@ router.get("/orders/:id/bill", async (req, res) => {
     doc.font("Helvetica-Bold").text("Delivery To:");
     doc.font("Helvetica").fontSize(9)
       .text(
-        `${order.deliveryAddress?.name || ""}\n${order.deliveryAddress?.areaOrStreet || ""}, ${order.deliveryAddress?.landmark || ""}\n${order.deliveryAddress?.pincode || ""}`,
+        `${order.deliveryAddress?.name || ""}\n${order.deliveryAddress?.areaOrStreet || ""}, ${order.deliveryAddress?.landmark || ""}, ${order.deliveryAddress?.pincode || ""}`,
         { width: doc.page.width - 30 }
       )
       .moveDown(0.5);
@@ -66,43 +64,49 @@ router.get("/orders/:id/bill", async (req, res) => {
     // Divider line
     doc.moveTo(15, doc.y).lineTo(doc.page.width - 15, doc.y).lineWidth(1).stroke();
 
-    // === COLUMN HEADERS ===
-    const itemX = 20;
-    const qtyX = 150;
-    const priceX = 200;
+    // === COLUMN HEADERS (NOW 4 COLUMNS) ===
+    const itemX = 15;
+    const qtyX = 100;
+    const priceX = 140;
+    const discX = 180;
+    const totalX = 220;
 
     doc.moveDown(0.4);
-    doc.fontSize(10).font("Helvetica-Bold");
+    doc.fontSize(9).font("Helvetica-Bold");
 
     const headerY = doc.y;
-    doc.text("Item", itemX, headerY, { width: qtyX - itemX - 5, align: "left" });
-    doc.text("Qty", qtyX, headerY, { width: 20, align: "right" });
-    doc.text("Price", priceX, headerY, { width: 50, align: "right" });
+    doc.text("Products", itemX, headerY, { width: qtyX - itemX - 5, align: "left" });
+    doc.text("Qty", qtyX, headerY, { width: 30, align: "right" });
+    doc.text("MRP", priceX, headerY, { width: 35, align: "right" });
+    doc.text("DP", discX, headerY, { width: 40, align: "right" });
+    doc.text("Total", totalX, headerY, { width: 40, align: "right" });
 
-    doc.moveTo(15, headerY + 14)
-      .lineTo(doc.page.width - 15, headerY + 14)
+    doc.moveTo(15, headerY + 12)
+      .lineTo(doc.page.width - 15, headerY + 12)
       .lineWidth(0.7)
       .stroke();
 
-    // === PRODUCTS LIST WITH FIXED ROWS ===
-    let y = headerY + 20;
+    // === PRODUCT ROWS WITH ALL VALUES ===
+    let y = headerY + 18;
     order.OrdersCartDTO.productsList.forEach((p, idx) => {
-      const rowHeight = 24;
+      const rowHeight = 22;
 
       if (idx % 2 === 1) {
         doc.rect(15, y - 2, doc.page.width - 30, rowHeight)
-          .fill("#f9f9f9").fillColor("#000");
+          .fill("#f9f9f9")
+          .fillColor("#000");
       }
 
-      doc.font("Helvetica").fontSize(10).fillColor("#000");
+      const discountedPrice = p.discountPercentage > 0
+        ? (p.price - (p.price * p.discountPercentage) / 100).toFixed(2)
+        : p.price;
+
+      doc.font("Helvetica").fontSize(9).fillColor("#000");
       doc.text(p.productName, itemX, y, { width: qtyX - itemX - 5 });
-      doc.text(p.quantity.toString(), qtyX, y, { width: 20, align: "right" });
-      doc.text(`INR ${p.totalPrice}`, priceX, y, { width: 50, align: "right" });
-
-      if (p.discountPercentage > 0) {
-        doc.fontSize(8).fillColor("gray")
-          .text(`Discount: ${p.discountPercentage}%`, itemX + 5, y + 12);
-      }
+      doc.text(p.quantity.toString(), qtyX, y, { width: 30, align: "right" });
+      doc.text(`${p.price.toFixed(2)}`, priceX, y, { width: 35, align: "right" });
+      doc.text(`${discountedPrice}`, discX, y, { width: 40, align: "right" });
+      doc.text(`${p.totalPrice.toFixed(2)}`, totalX, y, { width: 40, align: "right" });
 
       y += rowHeight;
     });
@@ -111,51 +115,62 @@ router.get("/orders/:id/bill", async (req, res) => {
 
     // === TOTALS SECTION ===
     const boxY = y + 10;
-    doc.rect(15, boxY, doc.page.width - 30, 55)
+    doc.rect(15, boxY, doc.page.width - 20, 60)
       .fillAndStroke("#f0f0f0", "#000");
 
     doc.fillColor("#000").fontSize(10).font("Helvetica");
     doc.text(
-      `Subtotal: INR ${order.OrdersCartDTO.totalPrice}`,
+      `Subtotal: ${order.OrdersCartDTO.totalPrice.toFixed(2)}`,
       20,
       boxY + 8,
       { align: "right", width: doc.page.width - 40 }
     );
+      const savedText = "You Saved ";
+      const savedAmount = `${order.OrdersCartDTO.discountedAmount.toFixed(2)}`;
+      const savedSuffix = " on this order";
+
+      const savedY = boxY + 25;
+      let currentX = 18;
+
+      // Normal part (You Saved)
+      doc.font("Helvetica").fontSize(10).fillColor("#000");
+      doc.text(savedText, currentX, savedY, { continued: true });
+
+      // Bold part (Amount)
+      doc.font("Helvetica-Bold").fontSize(10);
+      doc.text(savedAmount, { continued: true });
+
+      // Normal part again (on this Order)
+      doc.font("Helvetica").fontSize(12);
+      doc.text(savedSuffix);
+    
+    doc.font("Helvetica").fontSize(10);
     doc.text(
-      `Delivery Fee: INR ${order.deliveryCharges}`,
+      `Delivery Fee: ${order.deliveryCharges.toFixed(2)}`,
       20,
       boxY + 20,
       { align: "right", width: doc.page.width - 40 }
     );
 
-    if (order.giftWrapFee) {
-      doc.text(
-        `Gift Wrap Fee: INR ${order.giftWrapFee}`,
-        20,
-        boxY + 32,
-        { align: "right", width: doc.page.width - 40 }
-      );
-    }
 
     doc.font("Helvetica-Bold").fontSize(12)
       .text(
-        `TOTAL: INR ${order.totalPayable}`,
+        `TOTAL: ${order.totalPayable.toFixed(2)}`,
         20,
         boxY + 40,
-        { align: "right", width: doc.page.width - 40, underline: true }
+        { align: "right", width: doc.page.width - 40 }
       );
 
-    // === FOOTER ===
+    // === FOOTER WITH QR ===
     doc.moveDown(1);
     doc.font("Helvetica-Oblique").fontSize(10)
       .text("Thank you for shopping!", { align: "center" });
 
-    // === QR CODE SECTION ===
     const updateUrl = `https://svm-delivery.srivasavimart.store/delivery/update-status?orderId=${order._id}`;
     const qrDataUrl = await QRCode.toDataURL(updateUrl);
 
     doc.moveDown(0.5);
-    const qrSize = 100;
+    const qrSize = 90;
     doc.image(qrDataUrl, doc.page.width / 2 - qrSize / 2, doc.y, {
       width: qrSize,
       height: qrSize,
