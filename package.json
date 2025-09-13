@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Commit check",
   "main": "index.js",
- "scripts": {
-  "start": "node index.js"
+  "scripts": {
+    "start": "node index.js"
   },
   "repository": {
     "type": "git",
@@ -26,6 +26,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.15.0",
     "mongoose": "^8.13.2",
-    "node-fetch": "^2.6.9"
+    "node-fetch": "^2.6.9",
+    "pdfkit": "^0.17.2",
+    "qrcode": "^1.5.4"
   }
 }

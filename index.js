@@ -9,6 +9,7 @@ const productsRoute = require('./routes/products');
 const getproductRoutes = require('./routes/getproducts');
 const categoryRoutes = require('./routes/categories');
 const orderApiRoute = require('./routes/orderapi');
+const billRoute = require('./routes/bill');
 
 const app = express();
 app.use(bodyParser.json());
@@ -33,6 +34,7 @@ connectWithRetry();
 app.use('/api', sendOtpRoute);
 app.use('/api', verifyOtpRoute);
 app.use('/api', productsRoute);
+app.use('/api', billRoute);
 app.use('/users/products', getproductRoutes);
 app.use('/users/products/category', categoryRoutes);
 app.use('/api', orderApiRoute);
