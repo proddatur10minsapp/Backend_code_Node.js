@@ -49,7 +49,6 @@ router.get("/orders/:id/bill", async (req, res) => {
       .text(`Order ID: ${order._id}`)
       .text(`Phone: ${order.phoneNumber}`)
       .text(`Payment: ${order.paymentMethod?.replace("_", " ")}`)
-      .text(`Status: ${order.orderStatus}`)
       .text(`Date: ${orderDate}`)
       .moveDown(0.5);
 
@@ -114,52 +113,65 @@ router.get("/orders/:id/bill", async (req, res) => {
     doc.moveTo(15, y).lineTo(doc.page.width - 15, y).stroke();
 
     // === TOTALS SECTION ===
-    const boxY = y + 10;
-    doc.rect(15, boxY, doc.page.width - 20, 60)
-      .fillAndStroke("#f0f0f0", "#000");
+const boxY = y + 10;
+doc.rect(15, boxY, doc.page.width - 20, 70)
+  .fillAndStroke("#f0f0f0", "#000");
 
-    doc.fillColor("#000").fontSize(10).font("Helvetica");
-    doc.text(
-      `Subtotal: ${order.OrdersCartDTO.totalPrice.toFixed(2)}`,
-      20,
-      boxY + 8,
-      { align: "right", width: doc.page.width - 40 }
-    );
-      const savedText = "You Saved ";
-      const savedAmount = `${order.OrdersCartDTO.discountedAmount.toFixed(2)}`;
-      const savedSuffix = " on this order";
+doc.fillColor("#000").fontSize(10).font("Helvetica");
+doc.text(
+  `Subtotal: ${order.OrdersCartDTO.totalDiscountedPrice.toFixed(2)}`,
+  20,
+  boxY + 8,
+  { align: "right", width: doc.page.width - 40 }
+);
 
-      const savedY = boxY + 25;
-      let currentX = 18;
+const savedText = "You Saved ";
+const savedAmount = `${order.OrdersCartDTO.discountedAmount.toFixed(2)}`;
+const savedSuffix = " on this order";
 
-      // Normal part (You Saved)
-      doc.font("Helvetica").fontSize(10).fillColor("#000");
-      doc.text(savedText, currentX, savedY, { continued: true });
+const savedY = boxY + 25;
+let currentX = 18;
 
-      // Bold part (Amount)
-      doc.font("Helvetica-Bold").fontSize(10);
-      doc.text(savedAmount, { continued: true });
+// Normal part (You Saved)
+doc.font("Helvetica").fontSize(10).fillColor("#000");
+doc.text(savedText, currentX, savedY, { continued: true });
 
-      // Normal part again (on this Order)
-      doc.font("Helvetica").fontSize(12);
-      doc.text(savedSuffix);
-    
-    doc.font("Helvetica").fontSize(10);
-    doc.text(
-      `Delivery Fee: ${order.deliveryCharges.toFixed(2)}`,
-      20,
-      boxY + 20,
-      { align: "right", width: doc.page.width - 40 }
-    );
+// Bold part (Amount)
+doc.font("Helvetica-Bold").fontSize(10);
+doc.text(savedAmount, { continued: true });
 
+// Normal part again (on this Order)
+doc.font("Helvetica").fontSize(10);
+doc.text(savedSuffix);
 
-    doc.font("Helvetica-Bold").fontSize(12)
-      .text(
-        `TOTAL: ${order.totalPayable.toFixed(2)}`,
-        20,
-        boxY + 40,
-        { align: "right", width: doc.page.width - 40 }
-      );
+// ✅ Gift Wrap Fee (only if present) BEFORE Delivery Fee
+if (order.giftWrapFee && order.giftWrapFee > 0) {
+  doc.font("Helvetica").fontSize(10);
+  doc.text(
+    `Gift Wrap Fee: ${order.giftWrapFee.toFixed(2)}`,
+    20,
+    boxY + 22, // placed before delivery fee
+    { align: "right", width: doc.page.width - 40 }
+  );
+}
+
+// Delivery Fee
+doc.font("Helvetica").fontSize(10);
+doc.text(
+  `Delivery Fee: ${order.deliveryCharges.toFixed(2)}`,
+  20,
+  boxY + 38,
+  { align: "right", width: doc.page.width - 40 }
+);
+
+// Total
+doc.font("Helvetica-Bold").fontSize(12)
+  .text(
+    `TOTAL: ${order.totalPayable.toFixed(2)}`,
+    20,
+    boxY + 53,
+    { align: "right", width: doc.page.width - 40 }
+  );
 
     // === FOOTER WITH QR ===
     doc.moveDown(1);
