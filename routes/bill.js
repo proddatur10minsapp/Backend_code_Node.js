@@ -9,7 +9,8 @@ router.get("/orders/:id/bill", async (req, res) => {
     const order = await Order.findById(req.params.id).lean();
     if (!order) return res.status(404).send("Order not found");
 
-    const doc = new PDFDocument({ size: [300, 750], margin: 15 }); // ✅ wider to fit more columns
+    // === PDF SETUP ===
+    const doc = new PDFDocument({ size: [300, 750], margin: 15 });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -17,25 +18,25 @@ router.get("/orders/:id/bill", async (req, res) => {
     );
     doc.pipe(res);
 
-    // === HEADER SECTION ===
+    // === HEADER ===
     const headerHeight = 40;
     doc.rect(15, 15, doc.page.width - 30, headerHeight)
       .fillAndStroke("#f0f0f0", "#000");
 
-    doc.font("Helvetica-Bold").fontSize(16).fillColor("#000");
-    doc.text(
-      "Sri Vasavi Mart",
-      15,
-      15 + headerHeight / 2 - 8,
-      { width: doc.page.width - 30, align: "center" }
-    );
+    doc.font("Helvetica-Bold")
+      .fontSize(16)
+      .fillColor("#000")
+      .text("Sri Vasavi Mart", 15, 15 + headerHeight / 2 - 8, {
+        width: doc.page.width - 30,
+        align: "center",
+      });
 
     doc.moveDown(1);
-    doc.fontSize(12).font("Helvetica-Bold")
+    doc.fontSize(12)
+      .font("Helvetica-Bold")
       .text("Estimation", { align: "center", underline: true });
-    doc.moveDown(0.5);
 
-    // === ORDER INFO SECTION ===
+    // === ORDER INFO (LEFT) + QR (RIGHT) ===
     let orderDate;
     try {
       const rawDate = order.createdAt?.$date || order.createdAt;
@@ -45,36 +46,58 @@ router.get("/orders/:id/bill", async (req, res) => {
       orderDate = "N/A";
     }
 
-    doc.fontSize(9).font("Helvetica").fillColor("#000")
-      .text(`Order ID: ${order._id}`)
+    const orderInfoY = doc.y + 10;
+    const orderInfoX = 20;
+    doc.fontSize(9).font("Helvetica").fillColor("#000");
+
+    // Save starting Y and print order info
+    const orderInfoBottom = doc
+      .text(`Order ID: ${order._id}`, orderInfoX, orderInfoY)
       .text(`Phone: ${order.phoneNumber}`)
       .text(`Payment: ${order.paymentMethod?.replace("_", " ")}`)
-      .text(`Date: ${orderDate}`)
-      .moveDown(0.5);
+      .text(`Status: ${order.orderStatus}`)
+      .text(`Date: ${orderDate}`).y;
 
-    doc.font("Helvetica-Bold").text("Delivery To:");
+    // QR Code
+    const updateUrl = `https://svm-delivery.srivasavimart.store/delivery/update-status?orderId=${order._id}`;
+    const qrDataUrl = await QRCode.toDataURL(updateUrl);
+    const qrSize = 70;
+    const qrX = doc.page.width - qrSize - 20;
+
+    doc.image(qrDataUrl, qrX, orderInfoY, { width: qrSize, height: qrSize });
+    doc.fontSize(8)
+      .text("Scan to update", qrX, orderInfoY + qrSize + 2, {
+        width: qrSize,
+        align: "center",
+      });
+
+    // Move Y to the lower of (order info bottom OR QR bottom)
+    const nextSectionY = Math.max(orderInfoBottom, orderInfoY + qrSize + 12);
+    doc.moveTo(15, nextSectionY).lineTo(doc.page.width - 15, nextSectionY).stroke();
+
+    // === DELIVERY ADDRESS ===
+    doc.font("Helvetica-Bold").fontSize(9).text("Delivery To:", 15, nextSectionY + 8);
     doc.font("Helvetica").fontSize(9)
       .text(
         `${order.deliveryAddress?.name || ""}\n${order.deliveryAddress?.areaOrStreet || ""}, ${order.deliveryAddress?.landmark || ""}, ${order.deliveryAddress?.pincode || ""}`,
         { width: doc.page.width - 30 }
-      )
-      .moveDown(0.5);
+      );
 
-    // Divider line
-    doc.moveTo(15, doc.y).lineTo(doc.page.width - 15, doc.y).lineWidth(1).stroke();
+    // Divider
+    doc.moveTo(15, doc.y + 5).lineTo(doc.page.width - 15, doc.y + 5).stroke();
 
-    // === COLUMN HEADERS (NOW 4 COLUMNS) ===
+    // === PRODUCT TABLE HEADERS ===
     const itemX = 15;
     const qtyX = 100;
     const priceX = 140;
     const discX = 180;
     const totalX = 220;
 
-    doc.moveDown(0.4);
+    doc.moveDown(0.8);
     doc.fontSize(9).font("Helvetica-Bold");
-
     const headerY = doc.y;
-    doc.text("Products", itemX, headerY, { width: qtyX - itemX - 5, align: "left" });
+
+    doc.text("Products", itemX, headerY, { width: qtyX - itemX - 5 });
     doc.text("Qty", qtyX, headerY, { width: 30, align: "right" });
     doc.text("MRP", priceX, headerY, { width: 35, align: "right" });
     doc.text("DP", discX, headerY, { width: 40, align: "right" });
@@ -85,11 +108,10 @@ router.get("/orders/:id/bill", async (req, res) => {
       .lineWidth(0.7)
       .stroke();
 
-    // === PRODUCT ROWS WITH ALL VALUES ===
+    // === PRODUCT ROWS ===
     let y = headerY + 18;
     order.OrdersCartDTO.productsList.forEach((p, idx) => {
       const rowHeight = 22;
-
       if (idx % 2 === 1) {
         doc.rect(15, y - 2, doc.page.width - 30, rowHeight)
           .fill("#f9f9f9")
@@ -113,83 +135,48 @@ router.get("/orders/:id/bill", async (req, res) => {
     doc.moveTo(15, y).lineTo(doc.page.width - 15, y).stroke();
 
     // === TOTALS SECTION ===
-const boxY = y + 10;
-doc.rect(15, boxY, doc.page.width - 20, 70)
-  .fillAndStroke("#f0f0f0", "#000");
+    const boxY = y + 10;
+    doc.rect(15, boxY, doc.page.width - 20, 70)
+      .fillAndStroke("#f0f0f0", "#000");
 
-doc.fillColor("#000").fontSize(10).font("Helvetica");
-doc.text(
-  `Subtotal: ${order.OrdersCartDTO.totalDiscountedPrice.toFixed(2)}`,
-  20,
-  boxY + 8,
-  { align: "right", width: doc.page.width - 40 }
-);
+    doc.fillColor("#000").fontSize(10).font("Helvetica");
+    doc.text(`Subtotal: ${order.OrdersCartDTO.totalDiscountedPrice.toFixed(2)}`, 20, boxY + 8, {
+      align: "right",
+      width: doc.page.width - 40,
+    });
 
-const savedText = "You Saved ";
-const savedAmount = `${order.OrdersCartDTO.discountedAmount.toFixed(2)}`;
-const savedSuffix = " on this order";
+    // Saved Amount
+    doc.font("Helvetica").fontSize(10)
+      .text("You Saved ", 18, boxY + 25, { continued: true });
+    doc.font("Helvetica-Bold")
+      .text(`${order.OrdersCartDTO.discountedAmount.toFixed(2)}`, { continued: true });
+    doc.font("Helvetica").text(" on this order");
 
-const savedY = boxY + 25;
-let currentX = 18;
+    // Gift Wrap Fee
+    if (order.giftWrapFee && order.giftWrapFee > 0) {
+      doc.text(`Gift Wrap Fee: ${order.giftWrapFee.toFixed(2)}`, 20, boxY + 22, {
+        align: "right",
+        width: doc.page.width - 40,
+      });
+    }
 
-// Normal part (You Saved)
-doc.font("Helvetica").fontSize(10).fillColor("#000");
-doc.text(savedText, currentX, savedY, { continued: true });
+    // Delivery Fee
+    doc.text(`Delivery Fee: ${order.deliveryCharges.toFixed(2)}`, 20, boxY + 38, {
+      align: "right",
+      width: doc.page.width - 40,
+    });
 
-// Bold part (Amount)
-doc.font("Helvetica-Bold").fontSize(10);
-doc.text(savedAmount, { continued: true });
+    // Total
+    doc.font("Helvetica-Bold").fontSize(12)
+      .text(`TOTAL: ${order.totalPayable.toFixed(2)}`, 20, boxY + 53, {
+        align: "right",
+        width: doc.page.width - 40,
+      });
 
-// Normal part again (on this Order)
-doc.font("Helvetica").fontSize(10);
-doc.text(savedSuffix);
-
-// ✅ Gift Wrap Fee (only if present) BEFORE Delivery Fee
-if (order.giftWrapFee && order.giftWrapFee > 0) {
-  doc.font("Helvetica").fontSize(10);
-  doc.text(
-    `Gift Wrap Fee: ${order.giftWrapFee.toFixed(2)}`,
-    20,
-    boxY + 22, // placed before delivery fee
-    { align: "right", width: doc.page.width - 40 }
-  );
-}
-
-// Delivery Fee
-doc.font("Helvetica").fontSize(10);
-doc.text(
-  `Delivery Fee: ${order.deliveryCharges.toFixed(2)}`,
-  20,
-  boxY + 38,
-  { align: "right", width: doc.page.width - 40 }
-);
-
-// Total
-doc.font("Helvetica-Bold").fontSize(12)
-  .text(
-    `TOTAL: ${order.totalPayable.toFixed(2)}`,
-    20,
-    boxY + 53,
-    { align: "right", width: doc.page.width - 40 }
-  );
-
-    // === FOOTER WITH QR ===
+    // === FOOTER ===
     doc.moveDown(1);
     doc.font("Helvetica-Oblique").fontSize(10)
       .text("Thank you for shopping!", { align: "center" });
-
-    const updateUrl = `https://svm-delivery.srivasavimart.store/delivery/update-status?orderId=${order._id}`;
-    const qrDataUrl = await QRCode.toDataURL(updateUrl);
-
-    doc.moveDown(0.5);
-    const qrSize = 90;
-    doc.image(qrDataUrl, doc.page.width / 2 - qrSize / 2, doc.y, {
-      width: qrSize,
-      height: qrSize,
-    });
-    doc.moveDown(0.5);
-    doc.fontSize(8).font("Helvetica").fillColor("#000")
-      .text("Scan to update order status", { align: "center" });
 
     doc.end();
   } catch (err) {
