@@ -107,6 +107,29 @@ router.get("/orders/:id/bill", async (req, res) => {
     });
 
     doc.moveTo(15, y).lineTo(doc.page.width - 15, y).stroke();
+    // === GIFT PRODUCT NAME ONLY ===
+    if (order.giftProduct) {
+      const gift = order.giftProduct;
+
+      doc.moveDown(3); // space above the box
+
+      const giftBoxHeight = 15; // enough height for single line
+      const boxY = doc.y;
+
+      // Draw the box
+      doc.rect(15, boxY, doc.page.width - 30, giftBoxHeight).stroke();
+
+      // Add heading + product name in one line
+      doc.font("Helvetica-Bold")
+        .fontSize(8)
+        .text(`Gift Product: ${gift.name}`, 20, boxY + 7, {
+          width: doc.page.width - 40,
+          ellipsis: true
+        });
+
+      // Update y position for content after the box
+      y = boxY + giftBoxHeight + 10; // extra space after box
+    }
 
     // === TOTALS SECTION ===
     const boxY = y + 10;
@@ -146,7 +169,7 @@ router.get("/orders/:id/bill", async (req, res) => {
     // === QR CODE AT THE END ===
     const updateUrl = `https://svm-delivery.srivasavimart.store/delivery/update-status?orderId=${order._id}`;
     const qrDataUrl = await QRCode.toDataURL(updateUrl);
-    const qrSize = 200;
+    const qrSize = 180;
     const qrX = doc.page.width - qrSize - 40;
     const qrY = doc.y + 10;
 

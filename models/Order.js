@@ -46,6 +46,23 @@ const OrdersCartDTOSchema = new Schema({
 }, { _id: false });
 
 /* ─────────────────────────────
+   🎁 Gift Product Subdocument (Single Gift)
+───────────────────────────── */
+const GiftProductSchema = new Schema({
+  _id: String,
+  name: String,
+  image: String,
+  gallery: [String],
+  price: Number,
+  discountPrice: Number,
+  quantity: Number,
+  description: String,
+  stock: Number,
+  startAmount: Number,
+  endAmount: Number,
+}, { _id: false });
+
+/* ─────────────────────────────
    📄 Main Order Schema
 ───────────────────────────── */
 const OrderSchema = new Schema({
@@ -55,6 +72,7 @@ const OrderSchema = new Schema({
   totalPayable: Number,
   deliveryAddress: DeliveryAddressSchema,
   phoneNumber: String,
+  giftProduct: { type: GiftProductSchema, default: null },  // single gift
   orderStatus: {
     type: String,
     enum: ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'EXPIRED'],
