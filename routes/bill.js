@@ -76,8 +76,8 @@ router.get("/orders/:id/bill", async (req, res) => {
     doc.moveTo(15, nextSectionY).lineTo(doc.page.width - 15, nextSectionY).stroke();
 
     // === DELIVERY ADDRESS ===
-    doc.font("Helvetica-Bold").fontSize(9).text("Delivery To:", 15, nextSectionY + 8);
-    doc.font("Helvetica").fontSize(9)
+    doc.font("Helvetica-Bold").fontSize(20).text("Delivery To:", 15, nextSectionY + 8);
+    doc.font("Helvetica").fontSize(20)
       .text(
         `${order.deliveryAddress?.name || ""}\n${order.deliveryAddress?.areaOrStreet || ""}, ${order.deliveryAddress?.landmark || ""}, ${order.deliveryAddress?.pincode || ""}`,
         { width: doc.page.width - 30 }
@@ -111,26 +111,33 @@ router.get("/orders/:id/bill", async (req, res) => {
     // === PRODUCT ROWS ===
     let y = headerY + 18;
     order.OrdersCartDTO.productsList.forEach((p, idx) => {
-      const rowHeight = 22;
-      if (idx % 2 === 1) {
-        doc.rect(15, y - 2, doc.page.width - 30, rowHeight)
-          .fill("#f9f9f9")
-          .fillColor("#000");
-      }
+  const rowY = y;
 
-      const discountedPrice = p.discountPercentage > 0
-        ? (p.price - (p.price * p.discountPercentage) / 100).toFixed(2)
-        : p.price;
+  // Product name with wrapping
+  doc.font("Helvetica").fontSize(9).fillColor("#000");
+  const productNameHeight = doc.heightOfString(p.productName, {
+    width: qtyX - itemX - 5,
+  });
 
-      doc.font("Helvetica").fontSize(9).fillColor("#000");
-      doc.text(p.productName, itemX, y, { width: qtyX - itemX - 5 });
-      doc.text(p.quantity.toString(), qtyX, y, { width: 30, align: "right" });
-      doc.text(`${p.price.toFixed(2)}`, priceX, y, { width: 35, align: "right" });
-      doc.text(`${discountedPrice}`, discX, y, { width: 40, align: "right" });
-      doc.text(`${p.totalPrice.toFixed(2)}`, totalX, y, { width: 40, align: "right" });
+  // Background for alternate rows
+  const rowHeight = Math.max(productNameHeight, 20); // ensure min height
+  if (idx % 2 === 1) {
+    doc.rect(15, rowY - 2, doc.page.width - 30, rowHeight + 4)
+      .fill("#f9f9f9")
+      .fillColor("#000");
+  }
 
-      y += rowHeight;
-    });
+  // Print text
+  doc.fillColor("#000");
+  doc.text(p.productName, itemX, rowY, { width: qtyX - itemX - 5 });
+  doc.text(p.quantity.toString(), qtyX, rowY, { width: 30, align: "right" });
+  doc.text(`${p.price.toFixed(2)}`, priceX, rowY, { width: 35, align: "right" });
+  doc.text(`${p.discountedPrice}`, discX, rowY, { width: 40, align: "right" });
+  doc.text(`${p.totalPrice.toFixed(2)}`, totalX, rowY, { width: 40, align: "right" });
+
+  // Move Y for next row
+  y += rowHeight + 6;
+});
 
     doc.moveTo(15, y).lineTo(doc.page.width - 15, y).stroke();
 

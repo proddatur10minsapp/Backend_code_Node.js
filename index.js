@@ -19,7 +19,7 @@ const connectWithRetry = () => {
   mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    dbName: 'auth',  // 👈 force auth database
+    dbName: 'test',  // 👈 force auth database
   })
   .then(() => {
     console.log('✅ Connected to MongoDB');
