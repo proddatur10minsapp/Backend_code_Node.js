@@ -122,7 +122,7 @@ router.get("/orders/:id/bill", async (req, res) => {
       // Add heading + product name in one line
       doc.font("Helvetica-Bold")
         .fontSize(8)
-        .text(`Gift Product: ${gift.name}`, 20, boxY + 7, {
+        .text(`Free Gift: ${gift.name}`, 20, boxY + 7, {
           width: doc.page.width - 40,
           ellipsis: true
         });
