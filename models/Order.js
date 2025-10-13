@@ -29,6 +29,7 @@ const DeliveryAddressSchema = new Schema({
   pincode: Number,
   isDefault: Boolean,
   phoneNumber: String,
+  alterNativePhoneNumber:String,
 }, { _id: false });
 
 /* ─────────────────────────────
@@ -140,6 +141,7 @@ OrderSchema.virtual('cartSummary').get(function () {
           <tr><td><b>Landmark</b></td><td>${address.landmark || '-'}</td></tr>
           <tr><td><b>PIN Code</b></td><td>${address.pincode || '-'}</td></tr>
           <tr><td><b>Phone</b></td><td>${address.phoneNumber || '-'}</td></tr>
+          <tr><td><b>Alt. Phone</b></td><td>${address.alterNativePhoneNumber || '-'}</td></tr>
         </tbody>
       </table>
     </div>

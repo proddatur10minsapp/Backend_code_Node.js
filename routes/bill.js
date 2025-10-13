@@ -63,7 +63,7 @@ router.get("/orders/:id/bill", async (req, res) => {
     doc.font("Helvetica-Bold").fontSize(13).text("Delivery To:", 15, doc.y + 8);
     doc.font("Helvetica").fontSize(13)
       .text(
-        `${order.deliveryAddress?.name || ""}\n${order.deliveryAddress?.areaOrStreet || ""}, ${order.deliveryAddress?.landmark || ""}, ${order.deliveryAddress?.pincode || ""}, Phone:${order.phoneNumber}`,
+        `${order.deliveryAddress?.name || ""}\n${order.deliveryAddress?.areaOrStreet || ""}, ${order.deliveryAddress?.landmark || ""}, ${order.deliveryAddress?.pincode || ""}, Phone: ${order.deliveryAddress?.phoneNumber || ""}\nAlt. PH: ${order.deliveryAddress?.alterNativePhoneNumber || ""}`,
         { width: doc.page.width - 30 }
       );
 
