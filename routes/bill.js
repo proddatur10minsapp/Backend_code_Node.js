@@ -63,7 +63,7 @@ router.get("/orders/:id/bill", async (req, res) => {
     doc.font("Helvetica-Bold").fontSize(13).text("Delivery To:", 15, doc.y + 8);
     doc.font("Helvetica").fontSize(13)
       .text(
-        `${order.deliveryAddress?.name || ""}\n${order.deliveryAddress?.areaOrStreet || ""}, ${order.deliveryAddress?.landmark || ""}, ${order.deliveryAddress?.pincode || ""}, Phone: ${order.deliveryAddress?.phoneNumber || ""}\nAlt. PH: ${order.deliveryAddress?.alterNativePhoneNumber || ""}`,
+        `${order.deliveryAddress?.name || ""}\n${order.deliveryAddress?.areaOrStreet || ""}, ${order.deliveryAddress.type}, ${order.deliveryAddress?.landmark || ""}, ${order.deliveryAddress?.pincode || ""}, Phone: ${order.deliveryAddress?.phoneNumber || ""}\nAlt. PH: ${order.deliveryAddress?.alterNativePhoneNumber || ""} ${order.deliveryAddress.type}`,
         { width: doc.page.width - 30 }
       );
 
@@ -169,8 +169,8 @@ router.get("/orders/:id/bill", async (req, res) => {
     // === QR CODE AT THE END ===
     const updateUrl = `https://svm-delivery.srivasavimart.store/delivery/update-status?orderId=${order._id}`;
     const qrDataUrl = await QRCode.toDataURL(updateUrl);
-    const qrSize = 180;
-    const qrX = doc.page.width - qrSize - 40;
+    const qrSize = 100;
+    const qrX = doc.page.width - qrSize - 80;
     const qrY = doc.y + 10;
 
     doc.image(qrDataUrl, qrX, qrY, { width: qrSize, height: qrSize });
