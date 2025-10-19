@@ -41,7 +41,7 @@ router.get("/orders/:id/bill", async (req, res) => {
     try {
       const rawDate = order.createdAt?.$date || order.createdAt;
       const dateObj = rawDate ? new Date(rawDate) : null;
-      orderDate = dateObj && !isNaN(dateObj) ? dateObj.toLocaleString() : "N/A";
+      orderDate = dateObj && !isNaN(dateObj) ? dateObj.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "N/A";
     } catch {
       orderDate = "N/A";
     }
@@ -54,7 +54,7 @@ router.get("/orders/:id/bill", async (req, res) => {
       .text(`Order ID: ${order._id}`, orderInfoX, orderInfoY)
       .text(`Payment: ${order.paymentMethod?.replace("_", " ")}`)
       .text(`Status: ${order.orderStatus}`)
-      .text(`Date: ${orderDate}`).y;
+      .text(`Date & Time: ${orderDate}`).y;
 
     // Divider after order info
     doc.moveTo(15, orderInfoBottom + 4).lineTo(doc.page.width - 15, orderInfoBottom + 4).stroke();
